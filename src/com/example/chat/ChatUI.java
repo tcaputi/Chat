@@ -1,9 +1,11 @@
 package com.example.chat;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import com.github.wolfie.refresher.Refresher;
 import com.github.wolfie.refresher.Refresher.RefreshListener;
@@ -22,29 +24,112 @@ import com.vaadin.ui.VerticalLayout;
 @SuppressWarnings("serial")
 public class ChatUI extends UI {
 
-	public class ChatRefreshListener implements RefreshListener {
-		public void refresh(final Refresher source) {
+	public static final String USER_PARAM = "user";
+	public static final String SESSION_PARAM = "sess";
+
+	private static HashMap<Long, List<ChatEntry>> sessions = new HashMap<Long, List<ChatEntry>>();
+
+	private String username;
+	private long sessionId;
+	private List<ChatEntry> session;
+
+	private VerticalLayout layout = new VerticalLayout();
+	private Refresher refresher = new Refresher(); 
+	private HorizontalLayout footer = new HorizontalLayout();; 
+	private TextField chatInput = new TextField();;
+	private Date latestupdate = new Date();
+	private VerticalLayout chatLayout  = new VerticalLayout();
+	private ChatListener chatListener = new ChatListener();
+
+	@Override
+	public void init(VaadinRequest request) {
+		setContent(layout);
+
+		Map<String, String[]> parameters = request.getParameterMap();
+		username = parameters.get(USER_PARAM)[0];
+		sessionId = Long.valueOf(parameters.get(SESSION_PARAM)[0]);
+		session = sessions.get(sessionId);
+		if(session == null){
+			session = new LinkedList<ChatEntry>();
+			sessions.put(sessionId, session);
+		}
+
+		addExtension(refresher);
+		refresher.setRefreshInterval(500);
+		refresher.addListener(new ChatRefreshListener());
+
+		chatLayout.setSizeFull();
+		layout.addComponent(chatLayout);
+
+		footer.setWidth("100%");
+		layout.addComponent(footer);
+
+		chatInput.focus();
+		chatInput.setWidth("100%");
+		chatInput.setImmediate(true);
+		chatInput.addValueChangeListener(chatListener);
+
+		footer.addComponent(chatInput);
+		footer.setExpandRatio(chatInput, 1);
+		footer.addComponent(new Button("Send", chatListener));
+	}
+
+	private void updateChatLog() {
+		Date newLatestUpdate = null;
+		for (ChatEntry entry : session) {
+			Date timestamp = entry.getTimestamp();
+			if (timestamp.after(latestupdate)) {
+				newLatestUpdate = timestamp;
+				print(entry);
+			}
+		}
+		if (newLatestUpdate != null) latestupdate = newLatestUpdate;
+	}
+
+	private void print(ChatEntry entry) {
+		Date timestamp = entry.getTimestamp();
+		String name = entry.getName();
+		String message = entry.getMessage();
+
+		HorizontalLayout chatLine = new HorizontalLayout();
+
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+		Label timeLabel = new Label(dateFormat.format(timestamp));
+		timeLabel.setWidth("130px");
+		chatLine.addComponent(timeLabel);
+
+		Label nameLabel = new Label(name + ": ");
+		nameLabel.setWidth("150px");
+		chatLine.addComponent(nameLabel);
+
+		Label messageLabel = new Label(message);
+		chatLine.addComponent(messageLabel);
+		chatLine.setExpandRatio(messageLabel, 1);
+
+		chatLayout.addComponent(chatLine);
+	}
+
+	private class ChatRefreshListener implements RefreshListener {
+		public void refresh(Refresher source) {
 			updateChatLog();
 		}
 	}
 
 	private class ChatListener implements ClickListener, ValueChangeListener {
-
-		public void valueChange(final ValueChangeEvent event) {
+		public void valueChange(ValueChangeEvent event) {
 			addNewChatLine();
 		}
 
-		public void buttonClick(final ClickEvent event) {
+		public void buttonClick(ClickEvent event) {
 			addNewChatLine();
 		}
 
 		private void addNewChatLine() {
-			final String name = nameInput.getValue().toString();
-			final String message = chatInput.getValue().toString();
-			final Date timestamp = new Date();
+			String message = chatInput.getValue().toString();
+			Date timestamp = new Date();
 
 			if (message != null && !message.isEmpty()) {
-				entries.add(new ChatEntry(name, timestamp, message));
+				session.add(new ChatEntry(username, timestamp, message));
 				clearChat();
 				updateChatLog();
 			}
@@ -54,87 +139,5 @@ public class ChatUI extends UI {
 			chatInput.setValue("");
 			chatInput.focus();
 		}
-	}
-
-	private static final List<ChatEntry> entries = new ArrayList<ChatEntry>();
-	private static int visitor = 1;
-
-	private TextField nameInput;
-	private TextField chatInput;
-	private Date latestupdate = new Date();
-	private VerticalLayout chatLayout;
-
-	private final ChatListener chatListener = new ChatListener();
-
-	@Override
-	public void init(VaadinRequest request) {
-		final VerticalLayout layout = new VerticalLayout();
-		setContent(layout);
-		
-		chatLayout = new VerticalLayout();
-		chatLayout.setSizeFull();
-		layout.addComponent(chatLayout);
-
-		final Refresher refresher = new Refresher();
-		refresher.setRefreshInterval(500);
-		refresher.addListener(new ChatRefreshListener());
-		addExtension(refresher);
-		
-		final HorizontalLayout footer = new HorizontalLayout();
-		footer.setWidth("100%");
-		layout.addComponent(footer);
-
-		nameInput = new TextField();
-		nameInput.setValue("Anonymous " + visitor);
-		visitor++;
-		footer.addComponent(nameInput);
-
-		chatInput = new TextField();
-		chatInput.focus();
-		chatInput.setWidth("100%");
-		chatInput.setImmediate(true);
-		chatInput.addListener(chatListener); //this may cause issues
-		footer.addComponent(chatInput);
-		footer.setExpandRatio(chatInput, 1);
-
-		footer.addComponent(new Button("Send", chatListener));
-	}
-
-	private void updateChatLog() {
-		Date newLatestUpdate = null;
-		for (final ChatEntry entry : entries) {
-			final Date timestamp = entry.getTimestamp();
-			if (timestamp.after(latestupdate)) {
-				newLatestUpdate = timestamp;
-				print(entry);
-			}
-		}
-
-		if (newLatestUpdate != null) {
-			latestupdate = newLatestUpdate;
-		}
-	}
-
-	private void print(final ChatEntry entry) {
-		final Date timestamp = entry.getTimestamp();
-		final String name = entry.getName();
-		final String message = entry.getMessage();
-
-		final HorizontalLayout chatLine = new HorizontalLayout();
-
-		final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-		final Label timeLabel = new Label(dateFormat.format(timestamp));
-		timeLabel.setWidth("130px");
-		chatLine.addComponent(timeLabel);
-
-		final Label nameLabel = new Label(name + ": ");
-		nameLabel.setWidth("150px");
-		chatLine.addComponent(nameLabel);
-
-		final Label messageLabel = new Label(message);
-		chatLine.addComponent(messageLabel);
-		chatLine.setExpandRatio(messageLabel, 1);
-		
-		chatLayout.addComponent(chatLine);
 	}
 }
