@@ -17,6 +17,7 @@ import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Button.ClickListener;
 import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.Label;
+import com.vaadin.ui.Panel;
 import com.vaadin.ui.TextField;
 import com.vaadin.ui.UI;
 import com.vaadin.ui.VerticalLayout;
@@ -33,6 +34,9 @@ public class ChatUI extends UI {
 	private long sessionId;
 	private List<ChatEntry> session;
 
+	private Panel mainPanel = new Panel();
+	private Panel logPanel = new Panel();
+	private Panel inputPanel = new Panel();
 	private VerticalLayout layout = new VerticalLayout();
 	private Refresher refresher = new Refresher(); 
 	private HorizontalLayout footer = new HorizontalLayout();; 
@@ -43,8 +47,6 @@ public class ChatUI extends UI {
 
 	@Override
 	public void init(VaadinRequest request) {
-		setContent(layout);
-
 		Map<String, String[]> parameters = request.getParameterMap();
 		username = parameters.get(USER_PARAM)[0];
 		sessionId = Long.valueOf(parameters.get(SESSION_PARAM)[0]);
@@ -57,12 +59,21 @@ public class ChatUI extends UI {
 		addExtension(refresher);
 		refresher.setRefreshInterval(500);
 		refresher.addListener(new ChatRefreshListener());
+		
+		setContent(mainPanel);
+		mainPanel.setContent(layout);
+		mainPanel.setHeight(800,Unit.PIXELS);
+		mainPanel.setWidth(500, Unit.PIXELS);
 
-		chatLayout.setSizeFull();
-		layout.addComponent(chatLayout);
+		layout.setSizeFull();
+		logPanel.setContent(chatLayout);
+		mainPanel.setHeight(600,Unit.PIXELS);
+		mainPanel.setWidth(500, Unit.PIXELS);
+		layout.addComponent(logPanel);
 
 		footer.setWidth("100%");
-		layout.addComponent(footer);
+		inputPanel.setContent(footer);
+		layout.addComponent(inputPanel);
 
 		chatInput.focus();
 		chatInput.setWidth("100%");
@@ -76,7 +87,7 @@ public class ChatUI extends UI {
 
 	private void updateChatLog() {
 		Date newLatestUpdate = null;
-		for (ChatEntry entry : session) {
+		for(ChatEntry entry : session) {
 			Date timestamp = entry.getTimestamp();
 			if (timestamp.after(latestupdate)) {
 				newLatestUpdate = timestamp;
@@ -92,14 +103,15 @@ public class ChatUI extends UI {
 		String message = entry.getMessage();
 
 		HorizontalLayout chatLine = new HorizontalLayout();
-
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+		chatLine.setWidth(100, Unit.PERCENTAGE);
+		
+		SimpleDateFormat dateFormat = new SimpleDateFormat("[HH:mm]");
 		Label timeLabel = new Label(dateFormat.format(timestamp));
-		timeLabel.setWidth("130px");
+		timeLabel.setWidth("50px");
 		chatLine.addComponent(timeLabel);
 
 		Label nameLabel = new Label(name + ": ");
-		nameLabel.setWidth("150px");
+		nameLabel.setWidth("100px");
 		chatLine.addComponent(nameLabel);
 
 		Label messageLabel = new Label(message);
